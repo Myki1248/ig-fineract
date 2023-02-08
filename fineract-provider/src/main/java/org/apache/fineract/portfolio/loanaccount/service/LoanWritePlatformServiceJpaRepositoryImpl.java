@@ -1239,7 +1239,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     transactionId);
         }
 
-        if (!loanTransaction.isRepayment() || !loanTransaction.isPrePayment()) {
+        if (!loanTransaction.isRepayment() || !loanTransaction.isPrePayment() || !loanTransaction.isRepaymentDueDate()) {
             throw new PlatformServiceUnavailableException(
                     "error.msg.loan.chargeback.operation.not.allowed", "Loan transaction:" + transactionId
                             + " chargeback not allowed as loan transaction is not repayment, is " + loanTransaction.getTypeOf().getCode(),

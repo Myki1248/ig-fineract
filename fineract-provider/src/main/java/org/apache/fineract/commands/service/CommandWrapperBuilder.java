@@ -823,6 +823,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder loanRepaymentDueDateTransaction(final Long loanId) {
+        this.actionName = "REPAYMENT_DUE_DATE";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/transactions/template?command=repayment-due-date";
+        return this;
+    }
+
     public CommandWrapperBuilder loanMerchantIssuedRefundTransaction(final Long loanId) {
         this.actionName = "MERCHANTISSUEDREFUND";
         this.entityName = "LOAN";

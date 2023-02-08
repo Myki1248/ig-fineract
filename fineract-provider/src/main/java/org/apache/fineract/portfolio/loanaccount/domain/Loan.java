@@ -3265,8 +3265,15 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
             }
         }
 
+        final String previousTransactionProcessingStrategyCode = this.transactionProcessingStrategyCode;
+
+        if(loanTransaction.isRepaymentDueDate()) {
+            this.transactionProcessingStrategyCode = "mifos-standard-strategy";
+        }
+
         final LoanRepaymentScheduleTransactionProcessor loanRepaymentScheduleTransactionProcessor = this.transactionProcessorFactory
-                .determineProcessor(this.transactionProcessingStrategyCode);
+                    .determineProcessor(this.transactionProcessingStrategyCode);
+
 
         final LoanRepaymentScheduleInstallment currentInstallment = fetchLoanRepaymentScheduleInstallment(
                 loanTransaction.getTransactionDate());
@@ -3335,6 +3342,11 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         if (changedTransactionDetail != null) {
             this.loanTransactions.removeAll(changedTransactionDetail.getNewTransactionMappings().values());
         }
+
+        if(loanTransaction.isRepaymentDueDate()) {
+            this.transactionProcessingStrategyCode = previousTransactionProcessingStrategyCode;
+        }
+
         return changedTransactionDetail;
     }
 
@@ -4932,7 +4944,9 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     public LocalDate getLastUserTransactionDate() {
         LocalDate currentTransactionDate = getDisbursementDate();
         for (final LoanTransaction previousTransaction : this.loanTransactions) {
-            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting())
+            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting()
+//                || previousTransaction.isRepaymentDueDate()
+                )
                     && currentTransactionDate.isBefore(previousTransaction.getTransactionDate())) {
                 currentTransactionDate = previousTransaction.getTransactionDate();
             }
