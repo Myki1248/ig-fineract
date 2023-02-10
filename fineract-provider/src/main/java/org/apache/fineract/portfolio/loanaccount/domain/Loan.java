@@ -1283,7 +1283,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         for (final LoanRepaymentScheduleInstallment installment : installments) {
             LoanRepaymentScheduleInstallment existingInstallment = findByInstallmentNumber(existingInstallments,
                     installment.getInstallmentNumber());
-            if (existingInstallment != null) {
+            if (existingInstallment != null && existingInstallment != installment) {
 
                 Set<LoanInstallmentCharge> existingCharges = existingInstallment.getInstallmentCharges();
                 existingCharges.forEach(c -> c.setInstallment(installment));
@@ -3266,10 +3266,6 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         }
 
         final String previousTransactionProcessingStrategyCode = this.transactionProcessingStrategyCode;
-
-        if(loanTransaction.isRepaymentDueDate()) {
-            this.transactionProcessingStrategyCode = "mifos-standard-strategy";
-        }
 
         final LoanRepaymentScheduleTransactionProcessor loanRepaymentScheduleTransactionProcessor = this.transactionProcessorFactory
                     .determineProcessor(this.transactionProcessingStrategyCode);
