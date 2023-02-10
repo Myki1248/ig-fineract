@@ -3265,8 +3265,6 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
             }
         }
 
-        final String previousTransactionProcessingStrategyCode = this.transactionProcessingStrategyCode;
-
         final LoanRepaymentScheduleTransactionProcessor loanRepaymentScheduleTransactionProcessor = this.transactionProcessorFactory
                     .determineProcessor(this.transactionProcessingStrategyCode);
 
@@ -3337,10 +3335,6 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
 
         if (changedTransactionDetail != null) {
             this.loanTransactions.removeAll(changedTransactionDetail.getNewTransactionMappings().values());
-        }
-
-        if(loanTransaction.isRepaymentDueDate()) {
-            this.transactionProcessingStrategyCode = previousTransactionProcessingStrategyCode;
         }
 
         return changedTransactionDetail;
