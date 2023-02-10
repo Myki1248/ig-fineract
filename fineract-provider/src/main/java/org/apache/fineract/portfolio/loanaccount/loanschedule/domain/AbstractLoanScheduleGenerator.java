@@ -536,7 +536,6 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
                                 && fixedEmiAmount.compareTo(loanApplicationTerms.getFixedEmiAmount()) != 0) {
                             currentPeriodParams.setEmiAmountChanged(true);
                         }
-
                     }
                     adjustCompoundedAmountWithPaidDetail(scheduleParams, lastRestDate, currentTransactions, loanApplicationTerms,
                             holidayDetailDTO);
@@ -703,7 +702,7 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
                 }
                 boolean updateLatePaymentMap = false;
                 final LocalDate transactionDate = detail.getTransactionDate();
-                if (transactionDate.isBefore(scheduledDueDate)) {
+                if (transactionDate.isBefore(scheduledDueDate) && !detail.getTransaction().isRepaymentDueDate()) {
                     if (scheduleParams.getLoanRepaymentScheduleTransactionProcessor() != null && scheduleParams
                             .getLoanRepaymentScheduleTransactionProcessor().isInterestFirstRepaymentScheduleTransactionProcessor()) {
                         if (detail.getTransaction().isWaiver()) {

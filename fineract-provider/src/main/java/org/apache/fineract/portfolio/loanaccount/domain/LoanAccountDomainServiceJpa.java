@@ -278,7 +278,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
     private LoanBusinessEvent getLoanRepaymentTypeBusinessEvent(LoanTransactionType repaymentTransactionType, boolean isRecoveryRepayment,
             Loan loan) {
         LoanBusinessEvent repaymentEvent = null;
-        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan()) {
+        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan() || repaymentTransactionType.isRepaymentDueDate()) {
             repaymentEvent = new LoanTransactionMakeRepaymentPreBusinessEvent(loan);
         } else if (repaymentTransactionType.isMerchantIssuedRefund()) {
             repaymentEvent = new LoanTransactionMerchantIssuedRefundPreBusinessEvent(loan);
@@ -297,7 +297,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
     private LoanTransactionBusinessEvent getTransactionRepaymentTypeBusinessEvent(LoanTransactionType repaymentTransactionType,
             boolean isRecoveryRepayment, LoanTransaction transaction) {
         LoanTransactionBusinessEvent repaymentEvent = null;
-        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan()) {
+        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan() || repaymentTransactionType.isRepaymentDueDate()) {
             repaymentEvent = new LoanTransactionMakeRepaymentPostBusinessEvent(transaction);
         } else if (repaymentTransactionType.isMerchantIssuedRefund()) {
             repaymentEvent = new LoanTransactionMerchantIssuedRefundPostBusinessEvent(transaction);

@@ -1283,7 +1283,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         for (final LoanRepaymentScheduleInstallment installment : installments) {
             LoanRepaymentScheduleInstallment existingInstallment = findByInstallmentNumber(existingInstallments,
                     installment.getInstallmentNumber());
-            if (existingInstallment != null) {
+            if (existingInstallment != null && existingInstallment != installment) {
 
                 Set<LoanInstallmentCharge> existingCharges = existingInstallment.getInstallmentCharges();
                 existingCharges.forEach(c -> c.setInstallment(installment));
@@ -3266,7 +3266,8 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         }
 
         final LoanRepaymentScheduleTransactionProcessor loanRepaymentScheduleTransactionProcessor = this.transactionProcessorFactory
-                .determineProcessor(this.transactionProcessingStrategyCode);
+                    .determineProcessor(this.transactionProcessingStrategyCode);
+
 
         final LoanRepaymentScheduleInstallment currentInstallment = fetchLoanRepaymentScheduleInstallment(
                 loanTransaction.getTransactionDate());
@@ -3335,6 +3336,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         if (changedTransactionDetail != null) {
             this.loanTransactions.removeAll(changedTransactionDetail.getNewTransactionMappings().values());
         }
+
         return changedTransactionDetail;
     }
 
@@ -4932,7 +4934,9 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     public LocalDate getLastUserTransactionDate() {
         LocalDate currentTransactionDate = getDisbursementDate();
         for (final LoanTransaction previousTransaction : this.loanTransactions) {
-            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting())
+            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting()
+//                || previousTransaction.isRepaymentDueDate()
+                )
                     && currentTransactionDate.isBefore(previousTransaction.getTransactionDate())) {
                 currentTransactionDate = previousTransaction.getTransactionDate();
             }

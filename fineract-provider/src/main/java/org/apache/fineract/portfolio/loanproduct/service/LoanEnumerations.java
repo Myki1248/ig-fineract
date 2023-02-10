@@ -246,6 +246,8 @@ public final class LoanEnumerations {
                     LoanTransactionType.REPAYMENT.getCode(), "Repayment");
             case PRE_PAY_LOAN -> new LoanTransactionEnumData(LoanTransactionType.PRE_PAY_LOAN.getValue().longValue(),
                     LoanTransactionType.PRE_PAY_LOAN.getCode(), "Pre Pay Loan");
+            case REPAYMENT_DUE_DATE -> new LoanTransactionEnumData(LoanTransactionType.REPAYMENT_DUE_DATE.getValue().longValue(),
+                    LoanTransactionType.REPAYMENT_DUE_DATE.getCode(), "Repayment Due Date");
             case REPAYMENT_AT_DISBURSEMENT -> new LoanTransactionEnumData(
                     LoanTransactionType.REPAYMENT_AT_DISBURSEMENT.getValue().longValue(),
                     LoanTransactionType.REPAYMENT_AT_DISBURSEMENT.getCode(), "Repayment (at time of disbursement)");
