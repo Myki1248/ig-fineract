@@ -125,6 +125,18 @@ public class RBILoanRepaymentScheduleTransactionProcessor extends AbstractLoanRe
                 transactionMappings.add(LoanTransactionToRepaymentScheduleMapping.createFrom(loanTransaction, currentInstallment,
                         principalPortion, interestPortion, feeChargesPortion, penaltyChargesPortion));
             }
+        } else if (loanTransaction.isRepaymentDueDate()) {
+            penaltyChargesPortion = currentInstallment.payPenaltyChargesComponent(transactionDate, transactionAmountRemaining);
+            transactionAmountRemaining = transactionAmountRemaining.minus(penaltyChargesPortion);
+
+            feeChargesPortion = currentInstallment.payFeeChargesComponent(transactionDate, transactionAmountRemaining);
+            transactionAmountRemaining = transactionAmountRemaining.minus(feeChargesPortion);
+
+            final Money interestPortion = currentInstallment.payInterestComponent(transactionDate, transactionAmountRemaining);
+            transactionAmountRemaining = transactionAmountRemaining.minus(interestPortion);
+
+            final Money principalPortion = currentInstallment.payPrincipalComponent(transactionDate, transactionAmountRemaining);
+            transactionAmountRemaining = transactionAmountRemaining.minus(principalPortion);
         } else {
 
             final LoanRepaymentScheduleInstallment currentInstallmentBasedOnTransactionDate = nearestInstallment(
@@ -134,7 +146,7 @@ public class RBILoanRepaymentScheduleTransactionProcessor extends AbstractLoanRe
                 if ((installment.isInterestDue(currency) || installment.getFeeChargesOutstanding(currency).isGreaterThanZero()
                         || installment.getPenaltyChargesOutstanding(currency).isGreaterThanZero())
                         && (installment.isOverdueOn(loanTransaction.getTransactionDate()) || installment.getInstallmentNumber()
-                                .equals(currentInstallmentBasedOnTransactionDate.getInstallmentNumber()))) {
+                                .equals(currentInstallmentBasedOnTransactionDate.getInstallmentNumber()) || loanTransaction.isRepaymentDueDate() )) {
                     penaltyChargesPortion = installment.payPenaltyChargesComponent(transactionDate, transactionAmountRemaining);
                     transactionAmountRemaining = transactionAmountRemaining.minus(penaltyChargesPortion);
 
