@@ -4934,9 +4934,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     public LocalDate getLastUserTransactionDate() {
         LocalDate currentTransactionDate = getDisbursementDate();
         for (final LoanTransaction previousTransaction : this.loanTransactions) {
-            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting()
-//                || previousTransaction.isRepaymentDueDate()
-                )
+            if (!(previousTransaction.isReversed() || previousTransaction.isAccrual() || previousTransaction.isIncomePosting())
                     && currentTransactionDate.isBefore(previousTransaction.getTransactionDate())) {
                 currentTransactionDate = previousTransaction.getTransactionDate();
             }

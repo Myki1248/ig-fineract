@@ -1006,7 +1006,7 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
         if (feeFrequency == null) {
             scheduleDates.put(frequencyNumber++, startDate.minusDays(diff));
         } else {
-            while (!startDate.isAfter(DateUtils.getBusinessLocalDate())) {
+            while (!startDate.isAfter(DateUtils.getBusinessLocalDate().plusDays(1L))) {
                 scheduleDates.put(frequencyNumber++, startDate.minusDays(diff));
 
                 startDate = scheduledDateGenerator.getRepaymentPeriodDate(PeriodFrequencyType.fromInt(feeFrequency),
