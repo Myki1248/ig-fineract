@@ -72,10 +72,7 @@ public class LoanScheduleHistoryReadPlatformServiceImpl implements LoanScheduleH
 
         try {
             this.context.authenticatedUser();
-            Integer versionNumber = fetchCurrentVersionNumber(loanId);
-            if (versionNumber == 0) {
-                return null;
-            }
+            Integer versionNumber = 1;
             final LoanScheduleArchiveResultSetExtractor fullResultsetExtractor = new LoanScheduleArchiveResultSetExtractor(
                     repaymentScheduleRelatedLoanData, disbursementData);
             final String sql = "select " + fullResultsetExtractor.schema()
