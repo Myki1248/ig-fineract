@@ -271,7 +271,7 @@ public class LoanRescheduleRequestReadPlatformServiceImpl implements LoanResched
     }
 
     @Override
-    public List<LoanRescheduleRequestData> retrieveAllRescheduleRequests(String command) {
+    public List<LoanRescheduleRequestData> retrieveAllRescheduleRequests(String command, Long loanId) {
         LoanRescheduleRequestRowMapperForBulkApproval loanRescheduleRequestRowMapperForBulkApproval = new LoanRescheduleRequestRowMapperForBulkApproval();
         String sql = "select " + loanRescheduleRequestRowMapperForBulkApproval.schema();
         if (!StringUtils.isEmpty(command) && !command.equalsIgnoreCase(RescheduleLoansApiConstants.allCommandParamName)) {
@@ -283,6 +283,10 @@ public class LoanRescheduleRequestReadPlatformServiceImpl implements LoanResched
                 statusParam = 300;
             }
             return this.jdbcTemplate.query(sql, loanRescheduleRequestRowMapperForBulkApproval, statusParam); // NOSONAR
+        }
+        if (loanId != null) {
+            sql = sql + " where lrr.loan_id = ? ";
+            return this.jdbcTemplate.query(sql, loanRescheduleRequestRowMapperForBulkApproval, loanId); // NOSONAR
         }
         return this.jdbcTemplate.query(sql, loanRescheduleRequestRowMapperForBulkApproval); // NOSONAR
     }
