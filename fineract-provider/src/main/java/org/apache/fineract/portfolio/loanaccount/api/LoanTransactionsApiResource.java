@@ -486,6 +486,14 @@ public class LoanTransactionsApiResource {
         LoanTransactionData transactionData;
 
         if (CommandParameterUtil.is(commandParam, "repayment")) {
+            LocalDate transactionDate;
+            if (transactionDateParam == null) {
+                transactionDate = DateUtils.getBusinessLocalDate();
+            } else {
+                transactionDate = transactionDateParam.getDate("transactionDate", dateFormat, locale);
+            }
+            transactionData = this.loanReadPlatformService.retrieveLoanTransactionTemplateTillToday(resolvedLoanId, transactionDate);
+        } else if (CommandParameterUtil.is(commandParam, "repayment-due-date")) {
             transactionData = this.loanReadPlatformService.retrieveLoanTransactionTemplate(resolvedLoanId);
         } else if (CommandParameterUtil.is(commandParam, "merchantIssuedRefund")) {
             LocalDate transactionDate = DateUtils.getBusinessLocalDate();

@@ -59,6 +59,8 @@ public interface LoanReadPlatformService {
 
     LoanAccountData retrieveTemplateWithGroupAndProductDetails(Long groupId, Long productId);
 
+    LoanTransactionData retrieveLoanTransactionTemplateTillToday(Long loanId, LocalDate onDate);
+
     LoanTransactionData retrieveLoanTransactionTemplate(Long loanId);
 
     LoanTransactionData retrieveWaiveInterestDetails(Long loanId);

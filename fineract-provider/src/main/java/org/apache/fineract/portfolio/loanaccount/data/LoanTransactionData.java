@@ -49,10 +49,10 @@ public class LoanTransactionData {
     private final CurrencyData currency;
     private final PaymentDetailData paymentDetailData;
 
-    private final BigDecimal amount;
+    private BigDecimal amount;
     private final BigDecimal netDisbursalAmount;
     private final BigDecimal principalPortion;
-    private final BigDecimal interestPortion;
+    final private BigDecimal interestPortion;
     private final BigDecimal feeChargesPortion;
     private final BigDecimal penaltyChargesPortion;
     private final BigDecimal overpaymentPortion;
@@ -381,5 +381,9 @@ public class LoanTransactionData {
 
     public void setLoanTransactionRelations(List<LoanTransactionRelationData> transactionRelations) {
         this.transactionRelations = transactionRelations;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
     }
 }

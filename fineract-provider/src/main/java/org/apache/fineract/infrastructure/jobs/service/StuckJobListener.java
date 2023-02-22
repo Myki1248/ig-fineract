@@ -56,6 +56,9 @@ public class StuckJobListener implements ApplicationListener<ContextRefreshedEve
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
+        if (true) {
+            return;
+        }
         if (!jobRegistry.getJobNames().isEmpty()) {
             List<FineractPlatformTenant> allTenants = tenantDetailsService.findAllTenants();
             allTenants.forEach(tenant -> {

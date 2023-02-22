@@ -54,9 +54,7 @@ import org.apache.fineract.portfolio.group.domain.Group;
 import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
 import org.apache.fineract.portfolio.loanaccount.data.HolidayDetailDTO;
 import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
-import org.apache.fineract.portfolio.loanaccount.domain.Loan;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanDisbursementDetails;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
+import org.apache.fineract.portfolio.loanaccount.domain.*;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleGeneratorFactory;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,6 +93,15 @@ public class LoanUtilService {
     public ScheduleGeneratorDTO buildScheduleGeneratorDTO(final Loan loan, final LocalDate recalculateFrom) {
         final HolidayDetailDTO holidayDetailDTO = null;
         return buildScheduleGeneratorDTO(loan, recalculateFrom, holidayDetailDTO);
+    }
+
+    public LoanRepaymentScheduleInstallment getCurrentInstallmentByTransactionDate(List<LoanRepaymentScheduleInstallment> installments, final LocalDate transactionDate) {
+        for (final LoanRepaymentScheduleInstallment installment : installments) {
+            if ((installment.getDueDate().isAfter(transactionDate) || installment.getDueDate().isEqual(transactionDate)) && installment.getFromDate().isBefore(transactionDate)) {
+                return installment;
+            }
+        }
+        return null;
     }
 
     public ScheduleGeneratorDTO buildScheduleGeneratorDTO(final Loan loan, final LocalDate recalculateFrom,

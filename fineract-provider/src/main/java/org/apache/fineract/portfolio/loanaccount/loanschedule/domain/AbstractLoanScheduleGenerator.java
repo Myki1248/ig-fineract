@@ -1256,7 +1256,8 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
     /**
      * this method calculates the principal amount for generating the repayment schedule.
      */
-    private Money getPrincipalToBeScheduled(final LoanApplicationTerms loanApplicationTerms) {
+    @Override
+    public Money getPrincipalToBeScheduled(final LoanApplicationTerms loanApplicationTerms) {
         Money principalToBeScheduled;
         if (loanApplicationTerms.isMultiDisburseLoan()) {
             if (loanApplicationTerms.getTotalDisbursedAmount().isGreaterThanZero()) {
@@ -1898,7 +1899,8 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
         return periodNumber == numberOfRepayments;
     }
 
-    private BigDecimal deriveTotalChargesDueAtTimeOfDisbursement(final Set<LoanCharge> loanCharges) {
+    @Override
+    public BigDecimal deriveTotalChargesDueAtTimeOfDisbursement(final Set<LoanCharge> loanCharges) {
         BigDecimal chargesDueAtTimeOfDisbursement = BigDecimal.ZERO;
         for (final LoanCharge loanCharge : loanCharges) {
             if (loanCharge.isDueAtDisbursement()) {

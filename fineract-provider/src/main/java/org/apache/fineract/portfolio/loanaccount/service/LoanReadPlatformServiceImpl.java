@@ -21,6 +21,8 @@ package org.apache.fineract.portfolio.loanaccount.service;
 import static org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations.interestType;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -57,6 +59,7 @@ import org.apache.fineract.organisation.monetary.domain.ApplicationCurrency;
 import org.apache.fineract.organisation.monetary.domain.ApplicationCurrencyRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
+import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 import org.apache.fineract.organisation.staff.data.StaffData;
 import org.apache.fineract.organisation.staff.service.StaffReadPlatformService;
 import org.apache.fineract.portfolio.account.data.AccountTransferData;
@@ -114,11 +117,18 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelation;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanSummaryWrapper;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanTransactionNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleData;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleParams;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanSchedulePeriodData;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.OverdueLoanScheduleData;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleGenerator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PaymentPeriodsInOneYearCalculator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PrincipalInterest;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanApplicationTerms;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.DefaultPaymentPeriodsInOneYearCalculator;
 import org.apache.fineract.portfolio.loanaccount.mapper.LoanTransactionRelationMapper;
 import org.apache.fineract.portfolio.loanproduct.data.LoanProductData;
 import org.apache.fineract.portfolio.loanproduct.data.TransactionProcessingStrategyData;
@@ -173,6 +183,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     private final LoanTransactionRepository loanTransactionRepository;
     private final LoanTransactionRelationRepository loanTransactionRelationRepository;
     private final LoanTransactionRelationMapper loanTransactionRelationMapper;
+    private final LoanSummaryWrapper loanSummaryWrapper;
+    private final PaymentPeriodsInOneYearCalculator paymentPeriodsInOneYearCalculator = new DefaultPaymentPeriodsInOneYearCalculator();
 
     @Override
     public LoanAccountData retrieveOne(final Long loanId) {
@@ -432,6 +444,60 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     }
 
     @Override
+    public LoanTransactionData retrieveLoanTransactionTemplateTillToday(final Long loanId, LocalDate onDate) {
+
+        this.context.authenticatedUser();
+
+        RepaymentTransactionTemplateMapper mapper = new RepaymentTransactionTemplateMapper(sqlGenerator);
+        String sql = "select " + mapper.schema();
+        LoanTransactionData loanTransactionData = this.jdbcTemplate.queryForObject(sql, mapper, // NOSONAR
+                LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), loanId, loanId);
+
+        if (null == loanTransactionData) {
+            return null;
+        }
+
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
+        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), onDate);
+        final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
+        final LoanApplicationTerms loanApplicationTerms = loan.constructLoanApplicationTerms(scheduleGeneratorDTO);
+        final RoundingMode roundingMode = MoneyHelper.getRoundingMode();
+        final MathContext mc = new MathContext(8, roundingMode);
+        MonetaryCurrency currency = loanApplicationTerms.getCurrency();
+
+        final Integer currentInstallmentNumber = currentInstallment.getInstallmentNumber();
+        Money totalAmount = Money.zero(currency);
+
+        for (LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (currentInstallmentNumber <= installment.getInstallmentNumber()) {
+                break;
+            }
+            totalAmount = totalAmount.plus(installment.getTotalOutstanding(currency));
+        }
+
+        final LoanScheduleGenerator decliningLoanScheduleGenerator = scheduleGeneratorDTO.getLoanScheduleFactory().create(InterestMethod.DECLINING_BALANCE);
+        final double interestCalculationGraceOnRepaymentPeriodFraction = this.paymentPeriodsInOneYearCalculator
+                .calculatePortionOfRepaymentPeriodInterestChargingGrace(currentInstallment.getFromDate(), onDate,
+                        loanApplicationTerms.getInterestChargedFromLocalDate(), loanApplicationTerms.getLoanTermPeriodFrequencyType(),
+                        loanApplicationTerms.getRepaymentEvery());
+        LoanScheduleParams scheduleParams = LoanScheduleParams.createLoanScheduleParams(currency, Money.of(currency, decliningLoanScheduleGenerator.deriveTotalChargesDueAtTimeOfDisbursement(loan.getActiveCharges())),
+                loanApplicationTerms.getExpectedDisbursementDate(), decliningLoanScheduleGenerator.getPrincipalToBeScheduled(loanApplicationTerms));
+        PrincipalInterest principalInterest = loanApplicationTerms.calculateTotalInterestForPeriod(this.paymentPeriodsInOneYearCalculator,
+                interestCalculationGraceOnRepaymentPeriodFraction, currentInstallment.getInstallmentNumber(), mc, scheduleParams.getTotalOutstandingInterestPaymentDueToGrace(),
+                scheduleParams.getOutstandingBalanceAsPerRest(), currentInstallment.getFromDate(), onDate);
+
+        totalAmount = totalAmount.plus(currentInstallment.getPrincipalOutstanding(currency));
+        totalAmount = totalAmount.plus(currentInstallment.getPenaltyChargesOutstanding(currency));
+        totalAmount = totalAmount.plus(currentInstallment.getFeeChargesOutstanding(currency));
+        totalAmount = totalAmount.plus(principalInterest.interest().minus(currentInstallment.getInterestAccountedFor(currency)));
+
+        loanTransactionData.setAmount(totalAmount.getAmount());
+        final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
+        return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
+    }
+
+    @Override
     public LoanTransactionData retrieveLoanTransactionTemplate(final Long loanId) {
 
         this.context.authenticatedUser();
@@ -440,6 +506,29 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         String sql = "select " + mapper.schema();
         LoanTransactionData loanTransactionData = this.jdbcTemplate.queryForObject(sql, mapper, // NOSONAR
                 LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), loanId, loanId);
+
+        if (null == loanTransactionData) {
+            return null;
+        }
+
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
+        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), DateUtils.getBusinessLocalDate());
+        final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
+        final LoanApplicationTerms loanApplicationTerms = loan.constructLoanApplicationTerms(scheduleGeneratorDTO);
+        MonetaryCurrency currency = loanApplicationTerms.getCurrency();
+
+        final Integer currentInstallmentNumber = currentInstallment.getInstallmentNumber();
+        Money totalAmount = Money.zero(currency);
+
+        for (LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (currentInstallmentNumber < installment.getInstallmentNumber()) {
+                break;
+            }
+            totalAmount = totalAmount.plus(installment.getTotalOutstanding(currency));
+        }
+
+        loanTransactionData.setAmount(totalAmount.getAmount());
         final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
         return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
     }

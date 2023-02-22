@@ -276,9 +276,12 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     }
 
     public Money getInterestOutstanding(final MonetaryCurrency currency) {
-        final Money interestAccountedFor = getInterestPaid(currency).plus(getInterestWaived(currency))
+        return getInterestCharged(currency).minus(getInterestAccountedFor(currency));
+    }
+
+    public Money getInterestAccountedFor(final MonetaryCurrency currency) {
+        return getInterestPaid(currency).plus(getInterestWaived(currency))
                 .plus(getInterestWrittenOff(currency));
-        return getInterestCharged(currency).minus(interestAccountedFor);
     }
 
     public Money getInterestAccrued(final MonetaryCurrency currency) {
