@@ -62,7 +62,7 @@ public class SchedulerJobRunnerReadServiceImpl implements SchedulerJobRunnerRead
     @Override
     public List<JobDetailData> findAllJobDeatils() {
         final JobDetailMapper detailMapper = new JobDetailMapper(sqlGenerator);
-        final String sql = detailMapper.schema();
+        final String sql = detailMapper.schema() + " where job.is_active=1";
         final List<JobDetailData> JobDeatils = this.jdbcTemplate.query(sql, detailMapper, new Object[] {});
         return JobDeatils;
 
@@ -158,7 +158,7 @@ public class SchedulerJobRunnerReadServiceImpl implements SchedulerJobRunnerRead
                     .append(" runHistory.version,runHistory.start_time as lastRunStartTime,runHistory.end_time as lastRunEndTime,runHistory.")
                     .append(sqlGenerator.escape("status"))
                     .append(",runHistory.error_message as jobRunErrorMessage,runHistory.trigger_type as triggerType,runHistory.error_log as jobRunErrorLog ")
-                    .append(" from job job  left join job_run_history runHistory ON job.id=runHistory.job_id and job.previous_run_start_time=runHistory.start_time and job.is_active=1 ");
+                    .append(" from job job  left join job_run_history runHistory ON job.id=runHistory.job_id and job.previous_run_start_time=runHistory.start_time ");
         }
 
         public String schema() {
