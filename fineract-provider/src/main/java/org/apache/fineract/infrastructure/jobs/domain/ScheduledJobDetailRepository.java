@@ -32,7 +32,7 @@ public interface ScheduledJobDetailRepository
     @Query("select jobDetail from ScheduledJobDetail jobDetail where jobDetail.jobKey = :jobKey")
     ScheduledJobDetail findByJobKey(@Param("jobKey") String jobKey);
 
-    @Query("select jobDetail from ScheduledJobDetail jobDetail where jobDetail.id=:jobId")
+    @Query("select jobDetail from ScheduledJobDetail jobDetail where jobDetail.id=:jobId and jobDetail.activeSchedular=1")
     ScheduledJobDetail findByJobId(@Param("jobId") Long jobId);
 
     @Lock(value = LockModeType.PESSIMISTIC_WRITE)

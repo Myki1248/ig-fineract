@@ -498,7 +498,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     }
 
     @Override
-    public LoanTransactionData retrieveLoanTransactionTemplate(final Long loanId) {
+    public LoanTransactionData retrieveLoanTransactionTemplate(final Long loanId, LocalDate onDate) {
 
         this.context.authenticatedUser();
 
@@ -513,7 +513,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
 
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
         loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
-        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), DateUtils.getBusinessLocalDate());
+        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), onDate);
         final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
         final LoanApplicationTerms loanApplicationTerms = loan.constructLoanApplicationTerms(scheduleGeneratorDTO);
         MonetaryCurrency currency = loanApplicationTerms.getCurrency();

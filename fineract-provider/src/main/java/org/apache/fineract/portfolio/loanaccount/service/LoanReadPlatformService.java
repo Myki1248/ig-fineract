@@ -61,7 +61,7 @@ public interface LoanReadPlatformService {
 
     LoanTransactionData retrieveLoanTransactionTemplateTillToday(Long loanId, LocalDate onDate);
 
-    LoanTransactionData retrieveLoanTransactionTemplate(Long loanId);
+    LoanTransactionData retrieveLoanTransactionTemplate(Long loanId, LocalDate onDate);
 
     LoanTransactionData retrieveWaiveInterestDetails(Long loanId);
 
