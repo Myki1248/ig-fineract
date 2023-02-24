@@ -2409,17 +2409,6 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
                 addLoanRepaymentScheduleInstallment(retainedInstallments, loanScheduleModelPeriod);
             }
         }
-        for (LoanTransaction loanTransaction : transactions) {
-            if (loanTransaction.isRepaymentDueDate()) {
-                LocalDate loanTransactionDate = loanTransaction.getTransactionDate();
-                for (LoanRepaymentScheduleInstallment instalment : retainedInstallments) {
-                    if (loanTransactionDate.isAfter(instalment.getFromDate()) && (loanTransactionDate.isBefore(instalment.getDueDate()) || loanTransactionDate.isEqual(instalment.getDueDate()))) {
-                        instalment.payInterestComponent(instalment.getDueDate(), instalment.getInterestOutstanding(loanApplicationTerms.getCurrency()));
-                        instalment.payPrincipalComponent(instalment.getDueDate(), instalment.getPrincipalOutstanding(loanApplicationTerms.getCurrency()));
-                    }
-                }
-            }
-        }
         periods.addAll(loanScheduleModel.getPeriods());
         LoanScheduleModel loanScheduleModelwithPeriodChanges = LoanScheduleModel.withLoanScheduleModelPeriods(periods, loanScheduleModel);
         return LoanScheduleDTO.from(retainedInstallments, loanScheduleModelwithPeriodChanges);

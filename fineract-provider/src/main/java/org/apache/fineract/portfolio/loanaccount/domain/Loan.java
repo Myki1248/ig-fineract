@@ -5406,6 +5406,8 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
             return;
         }
         updateLoanSchedule(loanSchedule.getInstallments());
+        processPostDisbursementTransactions();
+
         this.interestRecalculatedOn = DateUtils.getBusinessLocalDate();
         LocalDate lastRepaymentDate = this.getLastRepaymentPeriodDueDate(true);
         Set<LoanCharge> charges = this.getActiveCharges();
@@ -5424,7 +5426,6 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
             }
         }
 
-        processPostDisbursementTransactions();
         processIncomeTransactions();
     }
 
