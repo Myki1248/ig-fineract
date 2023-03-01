@@ -1132,7 +1132,8 @@ public abstract class AbstractLoanScheduleGenerator implements LoanScheduleGener
      *            TODO
      * @return
      */
-    private LoanTermVariationParams applyExceptionLoanTermVariations(final LoanApplicationTerms loanApplicationTerms,
+    @Override
+    public LoanTermVariationParams applyExceptionLoanTermVariations(final LoanApplicationTerms loanApplicationTerms,
             final LocalDate scheduledDueDate, final ListIterator<LoanTermVariationsData> exceptionDataListIterator, int instalmentNumber,
             Money totalCumulativePrincipal, Money totalCumulativeInterest, MathContext mc) {
         boolean skipPeriod = false;

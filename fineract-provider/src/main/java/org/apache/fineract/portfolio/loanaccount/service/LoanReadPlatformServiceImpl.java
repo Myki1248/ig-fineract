@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +73,7 @@ import org.apache.fineract.portfolio.calendar.domain.CalendarEntityType;
 import org.apache.fineract.portfolio.calendar.service.CalendarReadPlatformService;
 import org.apache.fineract.portfolio.charge.data.ChargeData;
 import org.apache.fineract.portfolio.charge.domain.Charge;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.charge.service.ChargeReadPlatformService;
 import org.apache.fineract.portfolio.client.data.ClientData;
@@ -184,6 +186,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     private final LoanTransactionRelationRepository loanTransactionRelationRepository;
     private final LoanTransactionRelationMapper loanTransactionRelationMapper;
     private final LoanSummaryWrapper loanSummaryWrapper;
+    private final ChargeRepositoryWrapper chargeRepositoryWrapper;
     private final PaymentPeriodsInOneYearCalculator paymentPeriodsInOneYearCalculator = new DefaultPaymentPeriodsInOneYearCalculator();
 
     @Override
@@ -458,8 +461,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         }
 
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
-        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
-        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), onDate);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
+        final LoanRepaymentScheduleInstallment currentInstallment = loan.getCurrentInstallmentByTransactionDate(onDate);
         final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
         final LoanApplicationTerms loanApplicationTerms = loan.constructLoanApplicationTerms(scheduleGeneratorDTO);
         final RoundingMode roundingMode = MoneyHelper.getRoundingMode();
@@ -483,6 +486,10 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
                         loanApplicationTerms.getRepaymentEvery());
         LoanScheduleParams scheduleParams = LoanScheduleParams.createLoanScheduleParams(currency, Money.of(currency, decliningLoanScheduleGenerator.deriveTotalChargesDueAtTimeOfDisbursement(loan.getActiveCharges())),
                 loanApplicationTerms.getExpectedDisbursementDate(), decliningLoanScheduleGenerator.getPrincipalToBeScheduled(loanApplicationTerms));
+        List<LoanTermVariationsData> exceptionDataList = loanApplicationTerms.getLoanTermVariations().getExceptionData();
+        final ListIterator<LoanTermVariationsData> exceptionDataListIterator = exceptionDataList.listIterator();
+        decliningLoanScheduleGenerator.applyExceptionLoanTermVariations(loanApplicationTerms, currentInstallment.getDueDate(),
+                exceptionDataListIterator, currentInstallmentNumber, Money.zero(currency), Money.zero(currency), mc);
         PrincipalInterest principalInterest = loanApplicationTerms.calculateTotalInterestForPeriod(this.paymentPeriodsInOneYearCalculator,
                 interestCalculationGraceOnRepaymentPeriodFraction, currentInstallment.getInstallmentNumber(), mc, scheduleParams.getTotalOutstandingInterestPaymentDueToGrace(),
                 scheduleParams.getOutstandingBalanceAsPerRest(), currentInstallment.getFromDate(), onDate);
@@ -512,8 +519,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         }
 
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
-        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
-        final LoanRepaymentScheduleInstallment currentInstallment = this.loanUtilService.getCurrentInstallmentByTransactionDate(loan.getRepaymentScheduleInstallments(), onDate);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
+        final LoanRepaymentScheduleInstallment currentInstallment = loan.getCurrentInstallmentByTransactionDate(onDate);
         final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
         final LoanApplicationTerms loanApplicationTerms = loan.constructLoanApplicationTerms(scheduleGeneratorDTO);
         MonetaryCurrency currency = loanApplicationTerms.getCurrency();
@@ -541,7 +548,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         this.loanUtilService.validateRepaymentTransactionType(repaymentTransactionType);
 
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
-        loan.setHelpers(null, null, loanRepaymentScheduleTransactionProcessorFactory);
+        loan.setHelpers(null, null, loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
 
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);

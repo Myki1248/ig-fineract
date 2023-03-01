@@ -88,9 +88,11 @@ import org.apache.fineract.portfolio.calendar.domain.CalendarHistory;
 import org.apache.fineract.portfolio.calendar.domain.CalendarInstance;
 import org.apache.fineract.portfolio.calendar.domain.CalendarWeekDaysType;
 import org.apache.fineract.portfolio.calendar.service.CalendarUtils;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.domain.Charge;
-import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
+import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
+import org.apache.fineract.portfolio.charge.domain.ChargeType;
 import org.apache.fineract.portfolio.charge.exception.LoanChargeCannotBeAddedException;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.collateral.domain.LoanCollateral;
@@ -359,6 +361,9 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     private LoanLifecycleStateMachine loanLifecycleStateMachine;
     @Transient
     private LoanSummaryWrapper loanSummaryWrapper;
+
+    @Transient
+    private ChargeRepositoryWrapper chargeRepositoryWrapper;
 
     @Column(name = "principal_amount_proposed", scale = 6, precision = 19, nullable = false)
     private BigDecimal proposedPrincipal;
@@ -3200,6 +3205,15 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         doPostLoanTransactionChecks(loanTransaction.getTransactionDate(), loanLifecycleStateMachine);
     }
 
+    public LoanRepaymentScheduleInstallment getCurrentInstallmentByTransactionDate(final LocalDate transactionDate) {
+        for (final LoanRepaymentScheduleInstallment installment : this.getRepaymentScheduleInstallments()) {
+            if ((installment.getDueDate().isAfter(transactionDate) || installment.getDueDate().isEqual(transactionDate)) && installment.getFromDate().isBefore(transactionDate)) {
+                return installment;
+            }
+        }
+        return null;
+    }
+
     private ChangedTransactionDetail handleRepaymentOrRecoveryOrWaiverTransaction(final LoanTransaction loanTransaction,
             final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanTransaction adjustedTransaction,
             final ScheduleGeneratorDTO scheduleGeneratorDTO) {
@@ -3238,6 +3252,16 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
                     loanTransactionDate, getDisbursementDate());
         }
 
+        final LoanRepaymentScheduleInstallment closureInstallment = this.fetchLoanForeclosureDetail(loanTransactionDate);
+        BigDecimal foreClosureAmount = closureInstallment.getTotalOutstanding(getCurrency()).getAmount();
+        BigDecimal transactionAmount = loanTransaction.getAmount();
+        LoanRepaymentScheduleInstallment currentInstallment = this.getCurrentInstallmentByTransactionDate(loanTransaction.getTransactionDate());
+        if (transactionAmount.compareTo(foreClosureAmount) > 0 && currentInstallment != null) {
+            BigDecimal adhocChargeAmount = transactionAmount.subtract(foreClosureAmount);
+            Charge charge = chargeRepositoryWrapper.findOneByNameWithNotFoundDetection(ChargeType.ADHOC.getName());
+            addLoanCharge(new LoanCharge(this, charge, null, adhocChargeAmount, null, null, currentInstallment.getFromDate().plusDays(1), null, null, null, null));
+        }
+
         if (loanTransactionDate.isAfter(DateUtils.getBusinessLocalDate())) {
             final String errorMessage = "The transaction date cannot be in the future.";
             throw new InvalidLoanStateTransitionException("transaction", "cannot.be.a.future.date", errorMessage, loanTransactionDate);
@@ -3269,7 +3293,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
                     .determineProcessor(this.transactionProcessingStrategyCode);
 
 
-        final LoanRepaymentScheduleInstallment currentInstallment = fetchLoanRepaymentScheduleInstallment(
+        currentInstallment = fetchLoanRepaymentScheduleInstallment(
                 loanTransaction.getTransactionDate());
         boolean reprocess = true;
 
@@ -4545,9 +4569,10 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     }
 
     public void setHelpers(final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanSummaryWrapper loanSummaryWrapper,
-            final LoanRepaymentScheduleTransactionProcessorFactory transactionProcessorFactory) {
+            final LoanRepaymentScheduleTransactionProcessorFactory transactionProcessorFactory, ChargeRepositoryWrapper chargeRepositoryWrapper) {
         this.loanLifecycleStateMachine = loanLifecycleStateMachine;
         this.loanSummaryWrapper = loanSummaryWrapper;
+        this.chargeRepositoryWrapper = chargeRepositoryWrapper;
         this.transactionProcessorFactory = transactionProcessorFactory;
     }
 

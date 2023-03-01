@@ -18,12 +18,19 @@
  */
 package org.apache.fineract.portfolio.charge.domain;
 
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.repository.query.Param;
+public enum ChargeType {
 
-public interface ChargeRepository extends JpaRepository<Charge, Long>, JpaSpecificationExecutor<Charge> {
-    @Query("select charge from Charge charge where charge.name=:name")
-    Charge findByName(@Param("name") String name);
+    ADHOC("Adhoc"),
+    FORECLOSURE("Foreclosure"),
+    PROCESSING_FEE("Processing Fee");
+
+    private final String name;
+
+    ChargeType(final String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
 }

@@ -98,15 +98,6 @@ public class LoanUtilService {
         return buildScheduleGeneratorDTO(loan, recalculateFrom, holidayDetailDTO);
     }
 
-    public LoanRepaymentScheduleInstallment getCurrentInstallmentByTransactionDate(List<LoanRepaymentScheduleInstallment> installments, final LocalDate transactionDate) {
-        for (final LoanRepaymentScheduleInstallment installment : installments) {
-            if ((installment.getDueDate().isAfter(transactionDate) || installment.getDueDate().isEqual(transactionDate)) && installment.getFromDate().isBefore(transactionDate)) {
-                return installment;
-            }
-        }
-        return null;
-    }
-
     public ScheduleGeneratorDTO buildScheduleGeneratorDTO(final Loan loan, final LocalDate recalculateFrom,
             final HolidayDetailDTO holidayDetailDTO) {
         HolidayDetailDTO holidayDetails = holidayDetailDTO;

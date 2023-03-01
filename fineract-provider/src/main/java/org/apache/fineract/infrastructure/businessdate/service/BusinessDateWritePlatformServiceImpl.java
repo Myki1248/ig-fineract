@@ -19,6 +19,7 @@
 package org.apache.fineract.infrastructure.businessdate.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -120,6 +121,10 @@ public class BusinessDateWritePlatformServiceImpl implements BusinessDateWritePl
         BusinessDateType businessDateType = BusinessDateType.valueOf(type);
         Optional<BusinessDate> businessDate = repository.findByType(businessDateType);
 
+        LocalDate nowDate = LocalDate.now(ZoneId.systemDefault());
+        if (newDate.isAfter(nowDate)) {
+            newDate = nowDate;
+        }
         if (businessDate.isEmpty()) {
             BusinessDate newBusinessDate = BusinessDate.instance(businessDateType, newDate);
             repository.save(newBusinessDate);
