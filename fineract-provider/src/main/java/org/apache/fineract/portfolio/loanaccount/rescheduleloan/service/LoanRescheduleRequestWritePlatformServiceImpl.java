@@ -18,18 +18,6 @@
  */
 package org.apache.fineract.portfolio.loanaccount.rescheduleloan.service;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
@@ -89,6 +77,19 @@ import org.springframework.dao.NonTransientDataAccessException;
 import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -437,9 +438,19 @@ public class LoanRescheduleRequestWritePlatformServiceImpl implements LoanResche
 
             loan.recalculateAllCharges();
 
-            loanSchedule = loanScheduleGenerator.rescheduleNextInstallments(mathContext, loanApplicationTerms, loan,
-                    loanApplicationTerms.getHolidayDetailDTO(), loanRepaymentScheduleTransactionProcessor, rescheduleFromDate);
-            loan.updateLoanSchedule(loanSchedule.getInstallments());
+            Boolean recalculateScheduleAgain = Boolean.TRUE;
+            for (LoanRescheduleRequestToTermVariationMapping mapping : loanRescheduleRequest.getLoanRescheduleRequestToTermVariationMappings()) {
+                LoanTermVariations variation = mapping.getLoanTermVariations();
+                if (!variation.getTermType().equals(LoanTermVariationType.INTEREST_RATE_FROM_INSTALLMENT)) {
+                    recalculateScheduleAgain = Boolean.FALSE;
+                }
+            }
+
+            if (Boolean.TRUE.equals(recalculateScheduleAgain)) {
+                loanSchedule = loanScheduleGenerator.rescheduleNextInstallments(mathContext, loanApplicationTerms, loan,
+                        loanApplicationTerms.getHolidayDetailDTO(), loanRepaymentScheduleTransactionProcessor, rescheduleFromDate);
+                loan.updateLoanSchedule(loanSchedule.getInstallments());
+            }
 
             ChangedTransactionDetail changedTransactionDetail = loan.processTransactions();
 
