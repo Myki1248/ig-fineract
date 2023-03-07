@@ -1757,7 +1757,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         if (loanCharge.isActive()) {
             clearLoanInstallmentChargesBeforeRegeneration(loanCharge);
             loanCharge.update(chargeAmt, loanCharge.getDueLocalDate(), amount, fetchNumberOfInstallmensAfterExceptions(), totalChargeAmt);
-            validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
+//            validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
         }
 
     }
@@ -3207,12 +3207,14 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     }
 
     public LoanRepaymentScheduleInstallment getCurrentInstallmentByTransactionDate(final LocalDate transactionDate) {
-        for (final LoanRepaymentScheduleInstallment installment : this.getRepaymentScheduleInstallments()) {
+        List<LoanRepaymentScheduleInstallment> installments = this.getRepaymentScheduleInstallments();
+        for (final LoanRepaymentScheduleInstallment installment : installments) {
             if ((installment.getDueDate().isAfter(transactionDate) || installment.getDueDate().isEqual(transactionDate)) && installment.getFromDate().isBefore(transactionDate)) {
                 return installment;
             }
         }
-        return this.getRepaymentScheduleInstallments().get(this.getNumberOfRepayments());
+        Integer installmentSize = installments.size();
+        return installments.get(installmentSize - 1);
     }
 
     private ChangedTransactionDetail handleRepaymentOrRecoveryOrWaiverTransaction(final LoanTransaction loanTransaction,
