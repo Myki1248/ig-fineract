@@ -813,15 +813,15 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         }
     }
 
-    private void validateChargeHasValidSpecifiedDateIfApplicable(final LoanCharge loanCharge, final LocalDate disbursementDate,
-            final LocalDate lastRepaymentPeriodDueDate) {
-        if (isInterestBearing() && loanCharge.isSpecifiedDueDate()
-                && !loanCharge.isDueForCollectionFromAndUpToAndIncluding(disbursementDate, lastRepaymentPeriodDueDate)) {
-            final String defaultUserMessage = "This charge with specified due date cannot be added as the it is not in schedule range.";
-            throw new LoanChargeCannotBeAddedException("loanCharge", "specified.due.date.outside.range", defaultUserMessage,
-                    getDisbursementDate(), lastRepaymentPeriodDueDate, loanCharge.name());
-        }
-    }
+//    private void validateChargeHasValidSpecifiedDateIfApplicable(final LoanCharge loanCharge, final LocalDate disbursementDate,
+//            final LocalDate lastRepaymentPeriodDueDate) {
+//        if (isInterestBearing() && loanCharge.isSpecifiedDueDate()
+//                && !loanCharge.isDueForCollectionFromAndUpToAndIncluding(disbursementDate, lastRepaymentPeriodDueDate)) {
+//            final String defaultUserMessage = "This charge with specified due date cannot be added as the it is not in schedule range.";
+//            throw new LoanChargeCannotBeAddedException("loanCharge", "specified.due.date.outside.range", defaultUserMessage,
+//                    getDisbursementDate(), lastRepaymentPeriodDueDate, loanCharge.name());
+//        }
+//    }
 
     private LocalDate getLastRepaymentPeriodDueDate(final boolean includeRecalculatedInterestComponent) {
         LocalDate lastRepaymentDate = getDisbursementDate();
