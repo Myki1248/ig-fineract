@@ -23,42 +23,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Embedded;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
-import javax.persistence.OrderBy;
-import javax.persistence.Table;
-import javax.persistence.Transient;
-import javax.persistence.UniqueConstraint;
-import javax.persistence.Version;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigurationServiceContainer;
@@ -90,7 +54,9 @@ import org.apache.fineract.portfolio.calendar.domain.CalendarWeekDaysType;
 import org.apache.fineract.portfolio.calendar.service.CalendarUtils;
 import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
+import org.apache.fineract.portfolio.charge.domain.ChargeType;
 import org.apache.fineract.portfolio.charge.exception.LoanChargeCannotBeAddedException;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.collateral.domain.LoanCollateral;
@@ -124,11 +90,15 @@ import org.apache.fineract.portfolio.loanaccount.exception.MultiDisbursementData
 import org.apache.fineract.portfolio.loanaccount.exception.MultiDisbursementDataRequiredException;
 import org.apache.fineract.portfolio.loanaccount.exception.UndoLastTrancheDisbursementException;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleDTO;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleParams;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.AprCalculator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.DefaultPaymentPeriodsInOneYearCalculator;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanApplicationTerms;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleGenerator;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleModel;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleModelPeriod;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PaymentPeriodsInOneYearCalculator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PrincipalInterest;
 import org.apache.fineract.portfolio.loanproduct.domain.AmortizationMethod;
 import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
 import org.apache.fineract.portfolio.loanproduct.domain.InterestMethod;
@@ -142,6 +112,43 @@ import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
 import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.repaymentwithpostdatedchecks.domain.PostDatedChecks;
 import org.apache.fineract.useradministration.domain.AppUser;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
+import javax.persistence.OrderBy;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+import javax.persistence.UniqueConstraint;
+import javax.persistence.Version;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 @Entity
 @Table(name = "m_loan", uniqueConstraints = { @UniqueConstraint(columnNames = { "account_no" }, name = "loan_account_no_UNIQUE"),
@@ -359,6 +366,9 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     private LoanLifecycleStateMachine loanLifecycleStateMachine;
     @Transient
     private LoanSummaryWrapper loanSummaryWrapper;
+
+    @Transient
+    private ChargeRepositoryWrapper chargeRepositoryWrapper;
 
     @Column(name = "principal_amount_proposed", scale = 6, precision = 19, nullable = false)
     private BigDecimal proposedPrincipal;
@@ -653,7 +663,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
                     getId(), loanCharge.name());
         }
 
-        validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
+//        validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
 
         loanCharge.update(this);
 
@@ -805,28 +815,6 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
                     loanCharge.name());
 
         }
-    }
-
-    private void validateChargeHasValidSpecifiedDateIfApplicable(final LoanCharge loanCharge, final LocalDate disbursementDate,
-            final LocalDate lastRepaymentPeriodDueDate) {
-        if (isInterestBearing() && loanCharge.isSpecifiedDueDate()
-                && !loanCharge.isDueForCollectionFromAndUpToAndIncluding(disbursementDate, lastRepaymentPeriodDueDate)) {
-            final String defaultUserMessage = "This charge with specified due date cannot be added as the it is not in schedule range.";
-            throw new LoanChargeCannotBeAddedException("loanCharge", "specified.due.date.outside.range", defaultUserMessage,
-                    getDisbursementDate(), lastRepaymentPeriodDueDate, loanCharge.name());
-        }
-    }
-
-    private LocalDate getLastRepaymentPeriodDueDate(final boolean includeRecalculatedInterestComponent) {
-        LocalDate lastRepaymentDate = getDisbursementDate();
-        List<LoanRepaymentScheduleInstallment> installments = getRepaymentScheduleInstallments();
-        for (LoanRepaymentScheduleInstallment installment : installments) {
-            if ((includeRecalculatedInterestComponent || !installment.isRecalculatedInterestComponent())
-                    && installment.getDueDate().isAfter(lastRepaymentDate)) {
-                lastRepaymentDate = installment.getDueDate();
-            }
-        }
-        return lastRepaymentDate;
     }
 
     public void removeLoanCharge(final LoanCharge loanCharge) {
@@ -1283,11 +1271,17 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         for (final LoanRepaymentScheduleInstallment installment : installments) {
             LoanRepaymentScheduleInstallment existingInstallment = findByInstallmentNumber(existingInstallments,
                     installment.getInstallmentNumber());
-            if (existingInstallment != null) {
+            if (existingInstallment != null && existingInstallment != installment) {
+
                 Set<LoanInstallmentCharge> existingCharges = existingInstallment.getInstallmentCharges();
-                installment.getInstallmentCharges().addAll(existingCharges);
                 existingCharges.forEach(c -> c.setInstallment(installment));
+                installment.getInstallmentCharges().addAll(existingCharges);
                 existingInstallment.getInstallmentCharges().clear();
+
+                Set<LoanOverdueInstallmentCharge> existingOverdueCharges = existingInstallment.getOverdueInstallmentCharges();
+                existingOverdueCharges.forEach(c -> c.setInstallment(installment));
+                installment.getOverdueInstallmentCharges().addAll(existingOverdueCharges);
+                existingInstallment.getOverdueInstallmentCharges().clear();
             }
             addLoanRepaymentScheduleInstallment(installment);
         }
@@ -1745,7 +1739,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         if (loanCharge.isActive()) {
             clearLoanInstallmentChargesBeforeRegeneration(loanCharge);
             loanCharge.update(chargeAmt, loanCharge.getDueLocalDate(), amount, fetchNumberOfInstallmensAfterExceptions(), totalChargeAmt);
-            validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
+//            validateChargeHasValidSpecifiedDateIfApplicable(loanCharge, getDisbursementDate(), getLastRepaymentPeriodDueDate(false));
         }
 
     }
@@ -3194,6 +3188,41 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         doPostLoanTransactionChecks(loanTransaction.getTransactionDate(), loanLifecycleStateMachine);
     }
 
+    public LoanRepaymentScheduleInstallment getCurrentInstallmentByTransactionDate(final LocalDate transactionDate) {
+        List<LoanRepaymentScheduleInstallment> installments = this.getRepaymentScheduleInstallments();
+        for (final LoanRepaymentScheduleInstallment installment : installments) {
+            if ((installment.getDueDate().isAfter(transactionDate) || installment.getDueDate().isEqual(transactionDate)) && installment.getFromDate().isBefore(transactionDate)) {
+                return installment;
+            }
+        }
+        Integer installmentSize = installments.size();
+        return installments.get(installmentSize - 1);
+    }
+
+    public PrincipalInterest calculateInterestForCurrentInstallmentByTransactionDate(ScheduleGeneratorDTO scheduleGeneratorDTO, LocalDate transactionDate) {
+        LoanRepaymentScheduleInstallment currentInstallment = this.getCurrentInstallmentByTransactionDate(transactionDate);
+
+        final RoundingMode roundingMode = MoneyHelper.getRoundingMode();
+        final MathContext mc = new MathContext(8, roundingMode);
+        final Integer currentInstallmentNumber = currentInstallment.getInstallmentNumber();
+        final LoanApplicationTerms loanApplicationTerms = this.constructLoanApplicationTerms(scheduleGeneratorDTO);
+        final LoanScheduleGenerator decliningLoanScheduleGenerator = scheduleGeneratorDTO.getLoanScheduleFactory().create(InterestMethod.DECLINING_BALANCE);
+        final PaymentPeriodsInOneYearCalculator paymentPeriodsInOneYearCalculator = new DefaultPaymentPeriodsInOneYearCalculator();
+        final double interestCalculationGraceOnRepaymentPeriodFraction = paymentPeriodsInOneYearCalculator
+                .calculatePortionOfRepaymentPeriodInterestChargingGrace(currentInstallment.getFromDate(), transactionDate,
+                        loanApplicationTerms.getInterestChargedFromLocalDate(), loanApplicationTerms.getLoanTermPeriodFrequencyType(),
+                        loanApplicationTerms.getRepaymentEvery());
+        LoanScheduleParams scheduleParams = LoanScheduleParams.createLoanScheduleParams(getCurrency(), Money.of(getCurrency(), decliningLoanScheduleGenerator.deriveTotalChargesDueAtTimeOfDisbursement(this.getActiveCharges())),
+                loanApplicationTerms.getExpectedDisbursementDate(), decliningLoanScheduleGenerator.getPrincipalToBeScheduled(loanApplicationTerms));
+        List<LoanTermVariationsData> exceptionDataList = loanApplicationTerms.getLoanTermVariations().getExceptionData();
+        final ListIterator<LoanTermVariationsData> exceptionDataListIterator = exceptionDataList.listIterator();
+        decliningLoanScheduleGenerator.applyExceptionLoanTermVariations(loanApplicationTerms, currentInstallment.getDueDate(),
+                exceptionDataListIterator, currentInstallmentNumber, Money.zero(getCurrency()), Money.zero(getCurrency()), mc);
+        return loanApplicationTerms.calculateTotalInterestForPeriod(paymentPeriodsInOneYearCalculator,
+                interestCalculationGraceOnRepaymentPeriodFraction, currentInstallment.getInstallmentNumber(), mc, scheduleParams.getTotalOutstandingInterestPaymentDueToGrace(),
+                scheduleParams.getOutstandingBalanceAsPerRest(), currentInstallment.getFromDate(), transactionDate);
+    }
+
     private ChangedTransactionDetail handleRepaymentOrRecoveryOrWaiverTransaction(final LoanTransaction loanTransaction,
             final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanTransaction adjustedTransaction,
             final ScheduleGeneratorDTO scheduleGeneratorDTO) {
@@ -3232,6 +3261,21 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
                     loanTransactionDate, getDisbursementDate());
         }
 
+        final LoanRepaymentScheduleInstallment closureInstallment = this.fetchLoanForeclosureDetail(loanTransactionDate);
+        LoanRepaymentScheduleInstallment currentInstallment = this.getCurrentInstallmentByTransactionDate(loanTransactionDate);
+
+        BigDecimal foreClosureAmount = closureInstallment.getTotalOutstanding(getCurrency()).getAmount();
+        BigDecimal transactionAmount = loanTransaction.getAmount();
+        PrincipalInterest principalInterest = this.calculateInterestForCurrentInstallmentByTransactionDate(scheduleGeneratorDTO, loanTransactionDate);
+
+        foreClosureAmount = foreClosureAmount.add(principalInterest.interest().getAmount());
+
+        if (transactionAmount.compareTo(foreClosureAmount) > 0 && currentInstallment != null) {
+            BigDecimal adhocChargeAmount = transactionAmount.subtract(foreClosureAmount);
+            Charge charge = chargeRepositoryWrapper.findOneByNameWithNotFoundDetection(ChargeType.ADHOC.getName());
+            addLoanCharge(new LoanCharge(this, charge, null, adhocChargeAmount, null, null, loanTransactionDate, null, null, null, null));
+        }
+
         if (loanTransactionDate.isAfter(DateUtils.getBusinessLocalDate())) {
             final String errorMessage = "The transaction date cannot be in the future.";
             throw new InvalidLoanStateTransitionException("transaction", "cannot.be.a.future.date", errorMessage, loanTransactionDate);
@@ -3260,9 +3304,10 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         }
 
         final LoanRepaymentScheduleTransactionProcessor loanRepaymentScheduleTransactionProcessor = this.transactionProcessorFactory
-                .determineProcessor(this.transactionProcessingStrategyCode);
+                    .determineProcessor(this.transactionProcessingStrategyCode);
 
-        final LoanRepaymentScheduleInstallment currentInstallment = fetchLoanRepaymentScheduleInstallment(
+
+        currentInstallment = fetchLoanRepaymentScheduleInstallment(
                 loanTransaction.getTransactionDate());
         boolean reprocess = true;
 
@@ -3329,6 +3374,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
         if (changedTransactionDetail != null) {
             this.loanTransactions.removeAll(changedTransactionDetail.getNewTransactionMappings().values());
         }
+
         return changedTransactionDetail;
     }
 
@@ -4537,9 +4583,10 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
     }
 
     public void setHelpers(final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanSummaryWrapper loanSummaryWrapper,
-            final LoanRepaymentScheduleTransactionProcessorFactory transactionProcessorFactory) {
+            final LoanRepaymentScheduleTransactionProcessorFactory transactionProcessorFactory, ChargeRepositoryWrapper chargeRepositoryWrapper) {
         this.loanLifecycleStateMachine = loanLifecycleStateMachine;
         this.loanSummaryWrapper = loanSummaryWrapper;
+        this.chargeRepositoryWrapper = chargeRepositoryWrapper;
         this.transactionProcessorFactory = transactionProcessorFactory;
     }
 
@@ -5398,25 +5445,21 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
             return;
         }
         updateLoanSchedule(loanSchedule.getInstallments());
+        processPostDisbursementTransactions();
+
         this.interestRecalculatedOn = DateUtils.getBusinessLocalDate();
-        LocalDate lastRepaymentDate = this.getLastRepaymentPeriodDueDate(true);
         Set<LoanCharge> charges = this.getActiveCharges();
         for (final LoanCharge loanCharge : charges) {
             if (!loanCharge.isDueAtDisbursement()) {
                 updateOverdueScheduleInstallment(loanCharge);
-                if (loanCharge.getDueLocalDate() == null || !lastRepaymentDate.isBefore(loanCharge.getDueLocalDate())) {
-                    if ((loanCharge.isInstalmentFee() || !loanCharge.isWaived())
-                            && (loanCharge.getDueLocalDate() == null || !lastTransactionDate.isAfter(loanCharge.getDueLocalDate()))) {
-                        recalculateLoanCharge(loanCharge, generatorDTO.getPenaltyWaitPeriod());
-                        loanCharge.updateWaivedAmount(getCurrency());
-                    }
-                } else {
-                    loanCharge.setActive(false);
+                if ((loanCharge.isInstalmentFee() || !loanCharge.isWaived())
+                        && (loanCharge.getDueLocalDate() == null || !lastTransactionDate.isAfter(loanCharge.getDueLocalDate()))) {
+                    recalculateLoanCharge(loanCharge, generatorDTO.getPenaltyWaitPeriod());
+                    loanCharge.updateWaivedAmount(getCurrency());
                 }
             }
         }
 
-        processPostDisbursementTransactions();
         processIncomeTransactions();
     }
 
@@ -6707,18 +6750,18 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom {
 
     public void validateForForeclosure(final LocalDate transactionDate) {
 
-        if (isInterestRecalculationEnabledForProduct()) {
-            final String defaultUserMessage = "The loan with interest recalculation enabled cannot be foreclosed.";
-            throw new LoanForeclosureException("loan.with.interest.recalculation.enabled.cannot.be.foreclosured", defaultUserMessage,
-                    getId());
-        }
+//        if (isInterestRecalculationEnabledForProduct()) {
+//            final String defaultUserMessage = "The loan with interest recalculation enabled cannot be foreclosed.";
+//            throw new LoanForeclosureException("loan.with.interest.recalculation.enabled.cannot.be.foreclosured", defaultUserMessage,
+//                    getId());
+//        }
 
         LocalDate lastUserTransactionDate = getLastUserTransactionDate();
 
-        if (DateUtils.isDateInTheFuture(transactionDate)) {
-            final String defaultUserMessage = "The transactionDate cannot be in the future.";
-            throw new LoanForeclosureException("loan.foreclosure.transaction.date.is.in.future", defaultUserMessage, transactionDate);
-        }
+//        if (DateUtils.isDateInTheFuture(transactionDate)) {
+//            final String defaultUserMessage = "The transactionDate cannot be in the future.";
+//            throw new LoanForeclosureException("loan.foreclosure.transaction.date.is.in.future", defaultUserMessage, transactionDate);
+//        }
 
         if (lastUserTransactionDate.isAfter(transactionDate)) {
             final String defaultUserMessage = "The transactionDate cannot be in the future.";

@@ -141,6 +141,9 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     private Set<LoanInstallmentCharge> installmentCharges = new HashSet<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY, mappedBy = "installment")
+    private Set<LoanOverdueInstallmentCharge> overdueInstallmentCharges = new HashSet<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY, mappedBy = "installment")
     private Set<LoanTransactionToRepaymentScheduleMapping> loanTransactionToRepaymentScheduleMappings = new HashSet<>();
 
     public LoanRepaymentScheduleInstallment() {
@@ -273,9 +276,12 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     }
 
     public Money getInterestOutstanding(final MonetaryCurrency currency) {
-        final Money interestAccountedFor = getInterestPaid(currency).plus(getInterestWaived(currency))
+        return getInterestCharged(currency).minus(getInterestAccountedFor(currency));
+    }
+
+    public Money getInterestAccountedFor(final MonetaryCurrency currency) {
+        return getInterestPaid(currency).plus(getInterestWaived(currency))
                 .plus(getInterestWrittenOff(currency));
-        return getInterestCharged(currency).minus(interestAccountedFor);
     }
 
     public Money getInterestAccrued(final MonetaryCurrency currency) {
@@ -880,6 +886,10 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
 
     public Set<LoanInstallmentCharge> getInstallmentCharges() {
         return installmentCharges;
+    }
+
+    public Set<LoanOverdueInstallmentCharge> getOverdueInstallmentCharges() {
+        return overdueInstallmentCharges;
     }
 
     public boolean isAdditional() {

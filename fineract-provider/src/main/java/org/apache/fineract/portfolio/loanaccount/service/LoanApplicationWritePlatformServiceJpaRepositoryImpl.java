@@ -21,16 +21,6 @@ package org.apache.fineract.portfolio.loanaccount.service;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.temporal.ChronoField;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -85,6 +75,7 @@ import org.apache.fineract.portfolio.calendar.domain.CalendarType;
 import org.apache.fineract.portfolio.calendar.exception.CalendarNotFoundException;
 import org.apache.fineract.portfolio.calendar.service.CalendarReadPlatformService;
 import org.apache.fineract.portfolio.charge.domain.Charge;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.AccountNumberGenerator;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
@@ -148,6 +139,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import javax.persistence.PersistenceException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.temporal.ChronoField;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -169,6 +171,7 @@ public class LoanApplicationWritePlatformServiceJpaRepositoryImpl implements Loa
     private final AprCalculator aprCalculator;
     private final AccountNumberGenerator accountNumberGenerator;
     private final LoanSummaryWrapper loanSummaryWrapper;
+    private final ChargeRepositoryWrapper chargeRepositoryWrapper;
     private final GroupRepositoryWrapper groupRepository;
     private final LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory;
     private final CalendarRepository calendarRepository;
@@ -1625,7 +1628,7 @@ public class LoanApplicationWritePlatformServiceJpaRepositoryImpl implements Loa
 
     private Loan retrieveLoanBy(final Long loanId) {
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
-        loan.setHelpers(defaultLoanLifecycleStateMachine, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory);
+        loan.setHelpers(defaultLoanLifecycleStateMachine, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
         return loan;
     }
 

@@ -18,14 +18,6 @@
  */
 package org.apache.fineract.infrastructure.businessdate.service;
 
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import javax.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.infrastructure.businessdate.data.BusinessDateData;
@@ -44,6 +36,16 @@ import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidati
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.jobs.exception.JobExecutionException;
 import org.springframework.stereotype.Service;
+
+import javax.validation.constraints.NotNull;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -120,6 +122,10 @@ public class BusinessDateWritePlatformServiceImpl implements BusinessDateWritePl
         BusinessDateType businessDateType = BusinessDateType.valueOf(type);
         Optional<BusinessDate> businessDate = repository.findByType(businessDateType);
 
+        LocalDate nowDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        if (newDate.isAfter(nowDate)) {
+            newDate = nowDate;
+        }
         if (businessDate.isEmpty()) {
             BusinessDate newBusinessDate = BusinessDate.instance(businessDateType, newDate);
             repository.save(newBusinessDate);

@@ -381,8 +381,8 @@ public class AccountingProcessorHelper {
 
         if (totalAmount.compareTo(totalCreditedAmount) != 0) {
             throw new PlatformDataIntegrityException(
-                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
-                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
+                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction - " + loanId,
+                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction - " + loanId,
                     totalCreditedAmount, totalAmount);
         }
     }
@@ -673,8 +673,8 @@ public class AccountingProcessorHelper {
         // release branch
         if (totalAmount.compareTo(totalCreditedAmount) != 0) {
             throw new PlatformDataIntegrityException(
-                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
-                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
+                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction - " + loanId,
+                    "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction - " + loanId,
                     totalCreditedAmount, totalAmount);
         }
     }

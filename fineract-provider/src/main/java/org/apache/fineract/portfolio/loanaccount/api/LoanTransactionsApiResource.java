@@ -435,6 +435,10 @@ public class LoanTransactionsApiResource {
         CommandWrapper commandRequest = null;
         if (CommandParameterUtil.is(commandParam, "repayment")) {
             commandRequest = builder.loanRepaymentTransaction(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "prepayloan")) {
+            commandRequest = builder.loanPrePayLoanTransaction(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "repayment-due-date")) {
+            commandRequest = builder.loanRepaymentDueDateTransaction(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "merchantIssuedRefund")) {
             commandRequest = builder.loanMerchantIssuedRefundTransaction(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "payoutRefund")) {
@@ -482,7 +486,21 @@ public class LoanTransactionsApiResource {
         LoanTransactionData transactionData;
 
         if (CommandParameterUtil.is(commandParam, "repayment")) {
-            transactionData = this.loanReadPlatformService.retrieveLoanTransactionTemplate(resolvedLoanId);
+            LocalDate transactionDate;
+            if (transactionDateParam == null) {
+                transactionDate = DateUtils.getBusinessLocalDate();
+            } else {
+                transactionDate = transactionDateParam.getDate("transactionDate", dateFormat, locale);
+            }
+            transactionData = this.loanReadPlatformService.retrieveLoanTransactionTemplateTillToday(resolvedLoanId, transactionDate);
+        } else if (CommandParameterUtil.is(commandParam, "repayment-due-date")) {
+            LocalDate transactionDate;
+            if (transactionDateParam == null) {
+                transactionDate = DateUtils.getBusinessLocalDate();
+            } else {
+                transactionDate = transactionDateParam.getDate("transactionDate", dateFormat, locale);
+            }
+            transactionData = this.loanReadPlatformService.retrieveLoanTransactionTemplate(resolvedLoanId, transactionDate);
         } else if (CommandParameterUtil.is(commandParam, "merchantIssuedRefund")) {
             LocalDate transactionDate = DateUtils.getBusinessLocalDate();
             transactionData = this.loanReadPlatformService.retrieveLoanPrePaymentTemplate(LoanTransactionType.MERCHANT_ISSUED_REFUND,

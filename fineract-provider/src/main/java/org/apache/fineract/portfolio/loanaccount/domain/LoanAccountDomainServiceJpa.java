@@ -278,7 +278,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
     private LoanBusinessEvent getLoanRepaymentTypeBusinessEvent(LoanTransactionType repaymentTransactionType, boolean isRecoveryRepayment,
             Loan loan) {
         LoanBusinessEvent repaymentEvent = null;
-        if (repaymentTransactionType.isRepayment()) {
+        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan() || repaymentTransactionType.isRepaymentDueDate()) {
             repaymentEvent = new LoanTransactionMakeRepaymentPreBusinessEvent(loan);
         } else if (repaymentTransactionType.isMerchantIssuedRefund()) {
             repaymentEvent = new LoanTransactionMerchantIssuedRefundPreBusinessEvent(loan);
@@ -297,7 +297,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
     private LoanTransactionBusinessEvent getTransactionRepaymentTypeBusinessEvent(LoanTransactionType repaymentTransactionType,
             boolean isRecoveryRepayment, LoanTransaction transaction) {
         LoanTransactionBusinessEvent repaymentEvent = null;
-        if (repaymentTransactionType.isRepayment()) {
+        if (repaymentTransactionType.isRepayment() || repaymentTransactionType.isPrePayLoan() || repaymentTransactionType.isRepaymentDueDate()) {
             repaymentEvent = new LoanTransactionMakeRepaymentPostBusinessEvent(transaction);
         } else if (repaymentTransactionType.isMerchantIssuedRefund()) {
             repaymentEvent = new LoanTransactionMerchantIssuedRefundPostBusinessEvent(transaction);
@@ -717,7 +717,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
         final List<Long> existingReversedTransactionIds = new ArrayList<>();
         existingTransactionIds.addAll(loan.findExistingTransactionIds());
         existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
-        final ScheduleGeneratorDTO scheduleGeneratorDTO = null;
+        final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, foreClosureDate, null);
         final LoanRepaymentScheduleInstallment foreCloseDetail = loan.fetchLoanForeclosureDetail(foreClosureDate);
         if (loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()
                 && (loan.getAccruedTill() == null || !foreClosureDate.isEqual(loan.getAccruedTill()))) {

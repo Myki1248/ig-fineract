@@ -59,7 +59,10 @@ public enum LoanTransactionType {
     CHARGE_REFUND(24, "loanTransactionType.chargeRefund"), //
     CHARGEBACK(25, "loanTransactionType.chargeback"), //
     CHARGE_ADJUSTMENT(26, "loanTransactionType.chargeAdjustment"), //
-    CHARGE_OFF(27, "loanTransactionType.chargeOff");
+    CHARGE_OFF(27, "loanTransactionType.chargeOff"), //
+    PRE_PAY_LOAN(28, "loanTransactionType.prepayloan"), //
+
+    REPAYMENT_DUE_DATE(29, "loanTransactionType.repaymentDueDate"); //
 
     private final Integer value;
     private final String code;
@@ -102,6 +105,8 @@ public enum LoanTransactionType {
             case 25 -> LoanTransactionType.CHARGEBACK;
             case 26 -> LoanTransactionType.CHARGE_ADJUSTMENT;
             case 27 -> LoanTransactionType.CHARGE_OFF;
+            case 28 -> LoanTransactionType.PRE_PAY_LOAN;
+            case 29 -> LoanTransactionType.REPAYMENT_DUE_DATE;
             default -> LoanTransactionType.INVALID;
         };
     }
@@ -126,6 +131,14 @@ public enum LoanTransactionType {
         return this.equals(LoanTransactionType.REPAYMENT);
     }
 
+    public boolean isPrePayLoan() {
+        return this.equals(LoanTransactionType.PRE_PAY_LOAN);
+    }
+
+    public boolean isRepaymentDueDate() {
+        return this.equals(LoanTransactionType.REPAYMENT_DUE_DATE);
+    }
+
     public boolean isMerchantIssuedRefund() {
         return this.equals(LoanTransactionType.MERCHANT_ISSUED_REFUND);
     }
@@ -143,7 +156,7 @@ public enum LoanTransactionType {
     }
 
     public boolean isRepaymentType() {
-        return (isRepayment() || isMerchantIssuedRefund() || isPayoutRefund() || isGoodwillCredit() || isChargeRefund());
+        return (isRepayment() || isPrePayLoan() || isRepaymentDueDate() || isMerchantIssuedRefund() || isPayoutRefund() || isGoodwillCredit() || isChargeRefund());
     }
 
     public boolean isRecoveryRepayment() {

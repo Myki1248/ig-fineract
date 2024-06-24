@@ -56,4 +56,8 @@ public class ChargeRepositoryWrapper {
 
         return chargeDefinition;
     }
+
+    public Charge findOneByNameWithNotFoundDetection(final String name) {
+        return this.repository.findByName(name);
+    }
 }

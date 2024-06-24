@@ -19,13 +19,6 @@
 package org.apache.fineract.portfolio.loanaccount.service;
 
 import com.google.gson.JsonElement;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
@@ -47,6 +40,7 @@ import org.apache.fineract.organisation.workingdays.domain.WorkingDays;
 import org.apache.fineract.organisation.workingdays.domain.WorkingDaysRepositoryWrapper;
 import org.apache.fineract.portfolio.accountdetails.domain.AccountType;
 import org.apache.fineract.portfolio.accountdetails.service.AccountEnumerations;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.exception.ClientNotActiveException;
@@ -86,6 +80,14 @@ import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.rate.service.RateAssembler;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class LoanAssembler {
@@ -102,6 +104,7 @@ public class LoanAssembler {
     private final LoanChargeAssembler loanChargeAssembler;
     private final LoanCollateralAssembler collateralAssembler;
     private final LoanSummaryWrapper loanSummaryWrapper;
+    private final ChargeRepositoryWrapper chargeRepositoryWrapper;
     private final LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory;
     private final HolidayRepository holidayRepository;
     private final ConfigurationDomainService configurationDomainService;
@@ -114,14 +117,14 @@ public class LoanAssembler {
     public Loan assembleFrom(final Long accountId) {
         final Loan loanAccount = this.loanRepository.findOneWithNotFoundDetection(accountId, true);
         loanAccount.setHelpers(defaultLoanLifecycleStateMachine, this.loanSummaryWrapper,
-                this.loanRepaymentScheduleTransactionProcessorFactory);
+                this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
 
         return loanAccount;
     }
 
     public void setHelpers(final Loan loanAccount) {
         loanAccount.setHelpers(defaultLoanLifecycleStateMachine, this.loanSummaryWrapper,
-                this.loanRepaymentScheduleTransactionProcessorFactory);
+                this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
     }
 
     public Loan assembleFrom(final JsonCommand command) {
@@ -298,7 +301,7 @@ public class LoanAssembler {
             throw new IllegalStateException("No loan application exists for either a client or group (or both).");
         }
         loanApplication.setHelpers(defaultLoanLifecycleStateMachine, this.loanSummaryWrapper,
-                this.loanRepaymentScheduleTransactionProcessorFactory);
+                this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
 
         if (loanProduct.isMultiDisburseLoan()) {
             for (final LoanDisbursementDetails loanDisbursementDetails : loanApplication.getDisbursementDetails()) {

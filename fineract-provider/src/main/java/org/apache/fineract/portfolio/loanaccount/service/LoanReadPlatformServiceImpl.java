@@ -18,22 +18,6 @@
  */
 package org.apache.fineract.portfolio.loanaccount.service;
 
-import static org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations.interestType;
-
-import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.common.AccountingRuleType;
@@ -69,6 +53,7 @@ import org.apache.fineract.portfolio.calendar.domain.CalendarEntityType;
 import org.apache.fineract.portfolio.calendar.service.CalendarReadPlatformService;
 import org.apache.fineract.portfolio.charge.data.ChargeData;
 import org.apache.fineract.portfolio.charge.domain.Charge;
+import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.charge.service.ChargeReadPlatformService;
 import org.apache.fineract.portfolio.client.data.ClientData;
@@ -108,6 +93,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleTra
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanSubStatus;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanSummaryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelation;
@@ -119,6 +105,9 @@ import org.apache.fineract.portfolio.loanaccount.exception.LoanTransactionNotFou
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleData;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanSchedulePeriodData;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.OverdueLoanScheduleData;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.DefaultPaymentPeriodsInOneYearCalculator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PaymentPeriodsInOneYearCalculator;
+import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.PrincipalInterest;
 import org.apache.fineract.portfolio.loanaccount.mapper.LoanTransactionRelationMapper;
 import org.apache.fineract.portfolio.loanproduct.data.LoanProductData;
 import org.apache.fineract.portfolio.loanproduct.data.TransactionProcessingStrategyData;
@@ -140,6 +129,23 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations.interestType;
 
 @AllArgsConstructor
 @Service
@@ -173,6 +179,9 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     private final LoanTransactionRepository loanTransactionRepository;
     private final LoanTransactionRelationRepository loanTransactionRelationRepository;
     private final LoanTransactionRelationMapper loanTransactionRelationMapper;
+    private final LoanSummaryWrapper loanSummaryWrapper;
+    private final ChargeRepositoryWrapper chargeRepositoryWrapper;
+    private final PaymentPeriodsInOneYearCalculator paymentPeriodsInOneYearCalculator = new DefaultPaymentPeriodsInOneYearCalculator();
 
     @Override
     public LoanAccountData retrieveOne(final Long loanId) {
@@ -432,7 +441,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     }
 
     @Override
-    public LoanTransactionData retrieveLoanTransactionTemplate(final Long loanId) {
+    public LoanTransactionData retrieveLoanTransactionTemplateTillToday(final Long loanId, LocalDate onDate) {
 
         this.context.authenticatedUser();
 
@@ -440,6 +449,70 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         String sql = "select " + mapper.schema();
         LoanTransactionData loanTransactionData = this.jdbcTemplate.queryForObject(sql, mapper, // NOSONAR
                 LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), loanId, loanId);
+
+        if (null == loanTransactionData) {
+            return null;
+        }
+
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
+        final LoanRepaymentScheduleInstallment currentInstallment = loan.getCurrentInstallmentByTransactionDate(onDate);
+        MonetaryCurrency currency = loan.getCurrency();
+
+        final Integer currentInstallmentNumber = currentInstallment.getInstallmentNumber();
+        Money totalAmount = Money.zero(currency);
+
+        for (LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (currentInstallmentNumber <= installment.getInstallmentNumber()) {
+                break;
+            }
+            totalAmount = totalAmount.plus(installment.getTotalOutstanding(currency));
+        }
+
+        totalAmount = totalAmount.plus(currentInstallment.getPrincipalOutstanding(currency));
+        totalAmount = totalAmount.plus(currentInstallment.getPenaltyChargesOutstanding(currency));
+        totalAmount = totalAmount.plus(currentInstallment.getFeeChargesOutstanding(currency));
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, currentInstallment.getFromDate(), null);
+        PrincipalInterest principalInterest = loan.calculateInterestForCurrentInstallmentByTransactionDate(scheduleGeneratorDTO, onDate);
+        totalAmount = totalAmount.plus(principalInterest.interest().minus(currentInstallment.getInterestAccountedFor(currency)));
+
+        loanTransactionData.setAmount(totalAmount.getAmount());
+        final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
+        return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
+    }
+
+    @Override
+    public LoanTransactionData retrieveLoanTransactionTemplate(final Long loanId, LocalDate onDate) {
+
+        this.context.authenticatedUser();
+
+        RepaymentTransactionTemplateMapper mapper = new RepaymentTransactionTemplateMapper(sqlGenerator);
+        String sql = "select " + mapper.schema();
+        LoanTransactionData loanTransactionData = this.jdbcTemplate.queryForObject(sql, mapper, // NOSONAR
+                LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), loanId, loanId);
+
+        if (null == loanTransactionData) {
+            return null;
+        }
+
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        loan.setHelpers(null, this.loanSummaryWrapper, this.loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
+
+        final LoanRepaymentScheduleInstallment currentInstallment = loan.getCurrentInstallmentByTransactionDate(onDate);
+        MonetaryCurrency currency = loan.getCurrency();
+
+        final Integer currentInstallmentNumber = currentInstallment.getInstallmentNumber();
+        Money totalAmount = Money.zero(currency);
+
+        for (LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (currentInstallmentNumber < installment.getInstallmentNumber()) {
+                break;
+            }
+            totalAmount = totalAmount.plus(installment.getTotalOutstanding(currency));
+        }
+
+        loanTransactionData.setAmount(totalAmount.getAmount());
         final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
         return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
     }
@@ -452,7 +525,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
         this.loanUtilService.validateRepaymentTransactionType(repaymentTransactionType);
 
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
-        loan.setHelpers(null, null, loanRepaymentScheduleTransactionProcessorFactory);
+        loan.setHelpers(null, null, loanRepaymentScheduleTransactionProcessorFactory, this.chargeRepositoryWrapper);
 
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
@@ -1648,14 +1721,22 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService {
     @Override
     public Integer retriveLoanCounter(final Long groupId, final Integer loanType, Long productId) {
         final String sql = "Select MAX(l.loan_product_counter) from m_loan l where l.group_id = ?  and l.loan_type_enum = ? and l.product_id=?";
-        return this.jdbcTemplate.queryForObject(sql, new Object[] { groupId, loanType, productId }, Integer.class);
+        Integer loanCounter = this.jdbcTemplate.queryForObject(sql, new Object[] { groupId, loanType, productId }, Integer.class);
+        if (null == loanCounter) {
+            loanCounter = 0;
+        }
+        return loanCounter;
     }
 
     @SuppressWarnings("deprecation")
     @Override
     public Integer retriveLoanCounter(final Long clientId, Long productId) {
         final String sql = "Select MAX(l.loan_product_counter) from m_loan l where l.client_id = ? and l.product_id=?";
-        return this.jdbcTemplate.queryForObject(sql, new Object[] { clientId, productId }, Integer.class);
+        Integer loanCounter = this.jdbcTemplate.queryForObject(sql, new Object[] { clientId, productId }, Integer.class);
+        if (null == loanCounter) {
+            loanCounter = 0;
+        }
+        return loanCounter;
     }
 
     @Override
